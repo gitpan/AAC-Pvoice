@@ -1,8 +1,10 @@
 AAC::Pvoice README
 
-Because of the current dependency on Win32::API for AAC::Pvoice::Input,
-this module will currently only install on Win32 platforms. This will
-most likely change in version 0.5.
+As of version 0.5, these modules should be able to run on Linux and
+Win32 platforms. This dependency has to do with AAC::Pvoice::Input, which
+needs to be able to poll the parallel port in case it needs to communicate
+with the 'Adremo' electrical wheelchair. For this I'm now using
+Device::ParallelPort, which has drivers for Linux and Win32.
 
 At the very least you should be able to use this set of instructions
 to install the module...

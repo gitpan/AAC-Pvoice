@@ -6,6 +6,6 @@ Module::Build->new
       license         => 'perl',
       requires        => {
                           Wx            => 0.15,
-                          Win32::API    => 0.41
+                          Device::ParallelPort    => 1.00
                          }
     )->create_build_script;

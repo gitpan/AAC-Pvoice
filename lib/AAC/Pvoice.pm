@@ -14,16 +14,13 @@ use AAC::Pvoice::Panel;
 BEGIN {
 	use Exporter ();
 	use vars qw ($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-	$VERSION     = 0.4;
+	$VERSION     = 0.5;
 	@ISA         = qw (Exporter);
 	@EXPORT      = qw ();
 	@EXPORT_OK   = qw ();
 	%EXPORT_TAGS = ();
 }
 
-
-########################################### main pod documentation begin ##
-# Below is the stub of documentation for your module. You better edit it!
 
 =pod
 

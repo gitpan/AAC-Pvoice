@@ -5,4 +5,5 @@ Revision history for Perl module AAC::Pvoice
 0.3 minor documentation update in AAC::Pvoice::Bitmap
 0.4 correction in AAC::Pvoice::Input to read individual bits
     instead of the whole statusbyte from the parallel port
-
+0.5 AAC::Pvoice::Input now no longer uses Win32::API. Now it uses
+    Device::ParallelPort, so it should be able to run on Linux now too.

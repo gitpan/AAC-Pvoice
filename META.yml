@@ -1,10 +1,10 @@
 --- #YAML:1.0
 name: AAC-Pvoice
-version: 0.4
+version: 0.5
 license: perl
 distribution_type: module
 requires:
-  Win32::API: 0.41
+  Device::ParallelPort: 1
   Wx: 0.15
 recommends: {}
 build_requires: {}
@@ -12,7 +12,7 @@ conflicts: {}
 provides:
   AAC::Pvoice:
     file: lib/AAC/Pvoice.pm
-    version: 0.4
+    version: 0.5
   AAC::Pvoice::Bitmap:
     file: lib/AAC/Pvoice/Bitmap.pm
     version: 1.03
@@ -21,7 +21,7 @@ provides:
     version: 1.02
   AAC::Pvoice::Input:
     file: lib/AAC/Pvoice/Input.pm
-    version: 1.03
+    version: 1.04
   AAC::Pvoice::Panel:
     file: lib/AAC/Pvoice/Panel.pm
     version: 1.02

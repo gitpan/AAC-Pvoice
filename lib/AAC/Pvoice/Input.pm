@@ -4,11 +4,22 @@ use warnings;
 
 use Wx qw(:everything);
 use Wx::Perl::Carp;
-use Win32::API;
+BEGIN
+{
+    use Device::ParallelPort;
+    if ($^O eq 'MSWin32')
+    {
+        require Device::ParallelPort::drv::win32;
+    }
+    else
+    {
+        require Device::ParallelPort::drv::parport;
+    }
+}
 use Wx::Event qw(   EVT_LEFT_UP
                     EVT_RIGHT_UP
                     EVT_TIMER);
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.3 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.4 $=~/(\d+)\.(\d+)/);
 
 sub new
 {
@@ -26,7 +37,6 @@ sub new
                                # icon   = mouse left/right buttons
                                # adremo = electric wheelchair adremo
 
-    $self->{panel}->{PARPORT_ADDRESS}     = 0x378; # lpt1
     $self->{panel}->{Interval} = $self->{panel}->{config}->ReadInt('Interval', 10);
     # The event for the adremo device
     $self->{panel}->{timer} = Wx::Timer->new($self->{panel},my $tid = Wx::NewId());
@@ -64,13 +74,8 @@ sub MonitorPort
     return if $self->{config}->Read('Device') eq 'icon';
     return if $self->{monitorrun};
     $self->{monitorrun} = 1;
-    $self->{getportval} = Win32::API->new(  "inpout32", # dll
-                                            "Inp32",    # function
-                                            ["I"],      # Parameterlist
-                                            "I")        # returnvalue
-                            if not exists $self->{getportval};
-    my $curvalue = $self->{getportval}
-                         ->Call($self->{PARPORT_ADDRESS}+1);
+    $self->{pp} = Device::ParallelPort->new() if not $self->{pp};
+    my $curvalue = $self->{pp}->get_status();
     if (not defined $curvalue)
     {
         $self->{monitorrun} = 0;
@@ -81,12 +86,12 @@ sub MonitorPort
     {
         unless ($curvalue & 0x40)
         {
-            # if bit 7 is off it's a headmove to the right
+            # if bit 6 is off it's a headmove to the right
             $self->{input}->{next}->()   if $self->{input}->{next};
         }
         if ($curvalue & 0x80)
         {
-            # if bit 8 is on, it's a headmove to the left
+            # if bit 7 is on (this bit is inverted), it's a headmove to the left
             $self->{input}->{select}->() if $self->{input}->{select};
         }
     }
@@ -117,8 +122,8 @@ AAC::Pvoice::Input - A class that handles the input that controls a pVoice-like 
 
 =head1 DESCRIPTION
 
-The next release of this module will probably use Device::ParallelPort to
-make the module platform-independent again.
+The module now uses Device::ParallelPort, so it should be able to run
+on Win32 as well as Linux platforms.
 
 =head2 new(panel)
 
