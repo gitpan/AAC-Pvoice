@@ -2,7 +2,7 @@ package AAC::Pvoice::Panel;
 use strict;
 use warnings;
 
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.8 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.10 $=~/(\d+)\.(\d+)/);
 
 use Wx qw(:everything);
 use Wx::Perl::Carp;
@@ -27,6 +27,7 @@ sub new
     $self->{totalrows}   = 0;
     $self->{lastrow}     = 0;
     $self->{currentpage} = 0;
+    $self->{unfinished}  = 1;
     
     $self->RoundCornerRadius(10);
 
@@ -268,6 +269,14 @@ sub Append
     push @{$self->{unselectablerows}}, $row if $unselectable;
 }
 
+sub PauseInput
+{
+    my $self = shift;
+    my $bool = shift;
+    $self->{input}->PauseMonitor($bool);
+    $self->{input}->PauseAutoscan($bool);
+}
+
 sub Clear
 {
     my $self = shift;
@@ -281,7 +290,7 @@ sub Clear
     $self->{text}->Destroy if exists $self->{text};
     $self->{title}->Destroy if exists $self->{title};
     $self->{rows} = [];
-    $self->{unselectablerows} = [];    
+    $self->{unselectablerows} = [];
     $self->SUPER::Clear();
     $self->{totalrows} = 0;
     $self->{lastrow} = 0;
@@ -340,12 +349,14 @@ sub Finalize
     $self->{rowselection} = 1;
     $self->Refresh;
     $self->Update();
+    $self->{unfinished} = 0;
 }
 
 sub Next
 {
     my $self = shift;
-    return if $self->{editmode};
+    return if ($self->{editmode} || $self->{unfinished});
+    $self->{input}->QuitAutoscan;
     if ($self->{rowselection})
     {
         $self->SetNormalBorder($self->{rows}->[$self->{selectedrow}]) if $self->{rowcolumnscanning};
@@ -372,12 +383,14 @@ sub Next
         }
         $self->SetSelectionBorder($self->{rows}->[$self->{selectedrow}]->{items}->[$self->{selecteditem}]) if $self->{rowcolumnscanning};
     }
+    $self->{input}->StartAutoscan;
 }
 
 sub Select
 {
     my $self = shift;
     return if $self->{editmode};
+    $self->{input}->QuitAutoscan;
     if (($self->{rowselection}) &&  (@{$self->{rows}->[$self->{selectedrow}]->{items}} == 1))
     {
 	$self->{rowselection} = 0;
@@ -398,6 +411,7 @@ sub Select
         $self->SetSelectionBorder($self->{rows}->[$self->{selectedrow}]) if $self->{rowcolumnscanning};
         $self->{rowselection} = 1;
     }
+    $self->{input}->StartAutoscan;
 }
 
 sub ToRowSelection
@@ -497,6 +511,8 @@ This is the spacing used between the rows that are appended.
 =item selectionborderwidth
 
 This is the width of the border around a selected row or a selected item.
+
+=back
 
 =head2 SetEditmode($onoff)
 
@@ -613,6 +629,12 @@ This method removes the last text added to the speech *and* displaytext.
 Make sure that both speechtext and displaytext have the same amount of
 text added, because it just pops off the last item from both lists and
 updates the textrow.
+
+=head PauseInput($bool)
+
+This method makes sure that the timers that are used for the input (using
+AAC::Pvoice::Input) are paused if $bool is set to 1. If $bool is 0, they're
+restarted.
 
 =head1 BUGS
 

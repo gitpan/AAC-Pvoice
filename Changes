@@ -28,4 +28,7 @@ Revision history for Perl module AAC::Pvoice
         * no longer uses too large images (screensizing update)
     AAC::Pvoice::EditableRow
         * no longer uses too large images (screensizing update)
-    
+0.8 AAC::Pvoice::Input
+        * when keystrokes are used, alpha keys are now case-insensitive
+    Several bugfixes and therefore needed new methods (for most of you
+    probably not that important)

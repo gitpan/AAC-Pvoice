@@ -5,7 +5,7 @@ use warnings;
 use Wx qw(:everything);
 use Wx::Perl::Carp;
 
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.7 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.8 $=~/(\d+)\.(\d+)/);
 
 use base qw(Wx::Bitmap);
 
@@ -38,7 +38,7 @@ sub ReadImage
     confess "MaxX and MaxY should be positive" if $x < 1 || $y < 1;
     
     my $capdc = Wx::MemoryDC->new();
-    my $cpt = 11;
+    my $cpt = 10;
     my ($cfont, $cw, $ch) = (wxNullFont, 0, 0);
     if ($caption)
     {

@@ -7,7 +7,7 @@ use Wx::Perl::Carp;
 use AAC::Pvoice::Bitmap;
 use base qw(Wx::Panel);
 
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.4 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.5 $=~/(\d+)\.(\d+)/);
 #----------------------------------------------------------------------
 sub new
 {
@@ -17,10 +17,10 @@ sub new
 		$itemspacing, $background, $style,$name) = @_;
     my $self = $class->SUPER::new(  $parent,
 				    Wx::NewId,
-				    $wxPos||wxDefaultPosition,
-				    $wxSize||wxDefaultSize,
-				    $style||0,
-				    $name||'');
+				    $wxPos  || wxDefaultPosition,
+				    $wxSize || wxDefaultSize,
+				    $style  || 0,
+				    $name   || '');
 
     $self->{maxitems}    = $maxitems;
 

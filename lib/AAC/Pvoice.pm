@@ -14,7 +14,7 @@ use AAC::Pvoice::Panel;
 BEGIN {
 	use Exporter ();
 	use vars qw ($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-	$VERSION     = 0.7;
+	$VERSION     = 0.8;
 	@ISA         = qw (Exporter);
 	@EXPORT      = qw ();
 	@EXPORT_OK   = qw ();
@@ -38,9 +38,8 @@ AAC::Pvoice - Create GUI software for disabled people
 
 AAC::Pvoice is a set of modules to create software for people who can't
 use a normal mouse and/or keyboard. To see an application that uses this
-set of modules, take a look at pVoice (http://www.pvoice.org). The
-modules aren't finished by far, but in case anyone is interested, it's on
-CPAN now, and it will be improved at a later time.
+set of modules, take a look at pVoice (http://www.pvoice.org, or the
+sources on http://opensource.pvoice.org). 
 
 AAC::Pvoice is in fact a wrapper around many wxPerl classes, to make it
 easier to create applications like pVoice.
@@ -49,10 +48,6 @@ easier to create applications like pVoice.
 =head1 USAGE
 
 See the individual module's documentation
-
-This will be documented better, for an example application you can take
-a look at http://jouke.pvoice.org/files/pMusic.zip, which is in fact an
-MP3 player for people with a severe disability, created with the AAC::Pvoice modules
 
 =head1 BUGS
 

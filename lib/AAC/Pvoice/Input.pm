@@ -19,7 +19,7 @@ BEGIN
 use Wx::Event qw(   EVT_TIMER
                     EVT_CHAR
                     EVT_MOUSE_EVENTS);
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.8 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.11 $=~/(\d+)\.(\d+)/);
 
 sub new
 {
@@ -43,12 +43,14 @@ sub new
     $self->{window}->{Buttons}           = $self->{window}->{config}->ReadInt('Buttons',   2);
     $self->{window}->{OneButtonInterval} = $self->{window}->{config}->ReadInt('OneButtonInterval',    2000);
 
-    $self->_initmonitor;
-    $self->_initautoscan;
+    $self->_initmonitor if $self->{window}->{Device} eq 'adremo';
+    $self->_initautoscan if $self->{window}->{config}->ReadInt('Buttons') == 1;
     $self->_initkeys;
     $self->_initicon;
 
     $self->StartMonitor if $self->{window}->{Device} eq 'adremo';
+    $self->StartAutoscan if $self->{window}->{config}->ReadInt('Buttons') == 1;
+
     return $self;
 }
 
@@ -69,10 +71,6 @@ sub newchild
     # adremo = electric wheelchair adremo
     # keys   = keystrokes
     $self->{window}->{Device} = $self->{window}->{config}->Read('Device',    'icon');
-
-    $self->{window}->{Interval}          = $self->{window}->{config}->ReadInt('Interval', 10);
-    $self->{window}->{Buttons}           = $self->{window}->{config}->ReadInt('Buttons',   2);
-    $self->{window}->{OneButtonInterval} = $self->{window}->{config}->ReadInt('OneButtonInterval',    2000);
 
     $self->_initkeys;
     $self->_initicon;
@@ -98,7 +96,7 @@ sub _initmonitor
 {
     my $self = shift;
     # The event for the adremo device
-    $self->{window}->{timer} = Wx::Timer->new($self->{window},my $tid = Wx::NewId());
+    $self->{window}->{adremotimer} = Wx::Timer->new($self->{window},my $tid = Wx::NewId());
     EVT_TIMER($self->{window}, $tid, \&_monitorport);
 }
 
@@ -106,32 +104,52 @@ sub _initautoscan
 {
     my $self = shift;
     $self->{window}->{onebuttontimer} = Wx::Timer->new($self->{window},my $obtid = Wx::NewId());
-    EVT_TIMER($self->{window}, $obtid, sub{my $self = shift; $self->{input}->{next}->() });
+    EVT_TIMER($self->{window}, $obtid, sub{my $self = shift; $self->{input}->{next}->() if $self->{input}->{next}});
 }
 
 sub StartMonitor
 {
     my $self = shift;
-    $self->{window}->{timer}->Start($self->{window}->{Interval}, 0); # 0 is continuous
+    $self->{window}->{adremotimer}->Start($self->{window}->{Interval}, 0) # 0 is continuous
+                                                if $self->{window}->{adremotimer};
 }
 
 sub QuitMonitor
 {
     my $self = shift;
     # stop the timer for the port monitor
-    $self->{window}->{timer}->Stop() if exists $self->{window}->{timer};
+    $self->{window}->{adremotimer}->Stop() if  $self->{window}->{adremotimer} && $self->{window}->{adremotimer}->IsRunning;
 }
 
 sub StartAutoscan
 {
     my $self = shift;
-    $self->{window}->{onebuttontimer}->Start($self->{window}->{OneButtonInterval}, 0); # 0 is continuous
+    $self->{window}->{onebuttontimer}->Start($self->{window}->{OneButtonInterval}, 0)  # 0 is continuous
+                                                if $self->{window}->{onebuttontimer};
 }
 
 sub QuitAutoscan
 {
     my $self = shift;
-    $self->{window}->{onebuttontimer}->Stop();
+    $self->{window}->{onebuttontimer}->Stop() if  $self->{window}->{onebuttontimer} && $self->{window}->{onebuttontimer}->IsRunning;
+}
+
+sub PauseMonitor
+{
+    my $self = shift;
+    my $bool = shift;
+    return unless $self->{window}->{config}->Read('Device') eq 'adremo';
+    $self->QuitMonitor if $bool;
+    $self->StartMonitor unless $bool;
+}
+
+sub PauseAutoscan
+{
+    my $self = shift;
+    my $bool = shift;
+    return unless $self->{window}->{config}->ReadInt('Buttons') == 1;
+    $self->QuitAutoscan if $bool;
+    $self->StartAutoscan unless $bool;
 }
 
 sub GetDevice
@@ -162,10 +180,6 @@ sub Next
     my $self = shift;
     my $sub = shift;
     $self->{next} = $sub;
-    if ($self->{window}->{Buttons} == 1 && $self->{window}->{onebuttontimer})
-    {
-        $self->StartAutoscan;
-    }
 }
 
 sub Select
@@ -179,8 +193,10 @@ sub _keycontrol
 {
     # BEWARE: $self is the window object this event belongs to
     my ($self, $event) = @_;
-    $self->{input}->{select}->() if $event->GetKeyCode == $self->{config}->ReadInt('SelectKey', WXK_RETURN);
-    $self->{input}->{next}->() if (($event->GetKeyCode == $self->{config}->ReadInt('NextKey', WXK_SPACE)) and (not $self->{Buttons} == 1));
+    $self->{input}->{select}->() if ($event->GetKeyCode == $self->{config}->ReadInt('SelectKey', WXK_RETURN)) || (uc(chr($event->GetKeyCode)) eq uc(chr($self->{config}->ReadInt('SelectKey'))));
+    $self->{input}->{next}->()   if (( ($event->GetKeyCode == $self->{config}->ReadInt('NextKey', WXK_SPACE)) ||
+                                       (uc(chr($event->GetKeyCode)) eq uc(chr($self->{config}->ReadInt('NextKey'))))) and
+                                     (not $self->{config}->ReadInt('Buttons') == 1));
 }
 
 sub _iconcontrol
@@ -189,14 +205,14 @@ sub _iconcontrol
     my ($self, $event) = @_;
     $self->{input}->{select}->() if $event->LeftUp;
     $self->{input}->{next}->()   if $event->RightUp &&
-                                    not $self->{Buttons} == 1;
+                                    not $self->{config}->ReadInt('Buttons') == 1;
 }
 
 #----------------------------------------------------------------------
 # This sub is used to monitor the parallel port for the adremo device
 sub _monitorport
 {
-    # BEWARE: $self is the AAC::Pvoice::Panel object the timer
+    # BEWARE: $self is the wxWindow subclass the timer
     # belongs to!
     my ($self, $event) = @_;
     # do nothing if the device is not adremo or
@@ -223,7 +239,7 @@ sub _monitorport
             # if bit 6 is off it's a headmove to the right
             # which will indicate a Next() event unless we're in
             # one button mode
-            $self->{input}->{next}->() unless $self->{Buttons} == 1;
+            $self->{input}->{next}->() unless $self->{config}->ReadInt('Buttons') == 1;
         }
         if ($curvalue & 0x80)
         {
@@ -336,7 +352,6 @@ is released (EVT_LEFT_UP).
 $sublosefocus is the coderef that should be invoked when the $window
 loses focus (EVT_LEAVE).
 
-
 =head2 StartMonitor
 
 This method will start polling the the parallel port for input of the Adremo
@@ -346,6 +361,11 @@ Electrical Wheelchair.
 
 This method will stop the timer that monitors the parallel port.
 
+=head2 PauseMonitor($bool)
+
+This method will pause ($bool is set to 1) or restart ($bool is set to 0)
+the timer that monitors the parallel port.
+
 =head2 StartAutoscan
 
 This method will start the timer that invokes the Next() event every n milliseconds.
@@ -353,6 +373,13 @@ This method will start the timer that invokes the Next() event every n milliseco
 =head2 QuitAutoscan
 
 This method will stop the timer that invokes the Next() method.
+
+=head2 PauseAutoscan($bool)
+
+This method will pause ($bool is set to 1) or restart ($bool is set to 0)
+the timer that invokes the Next() method.
+
+
 
 =head1 BUGS
 
