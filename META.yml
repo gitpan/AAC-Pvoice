@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name: AAC-Pvoice
-version: 0.3
+version: 0.4
 license: perl
 distribution_type: module
 requires:
@@ -12,7 +12,7 @@ conflicts: {}
 provides:
   AAC::Pvoice:
     file: lib/AAC/Pvoice.pm
-    version: 0.3
+    version: 0.4
   AAC::Pvoice::Bitmap:
     file: lib/AAC/Pvoice/Bitmap.pm
     version: 1.03
@@ -21,7 +21,7 @@ provides:
     version: 1.02
   AAC::Pvoice::Input:
     file: lib/AAC/Pvoice/Input.pm
-    version: 1.02
+    version: 1.03
   AAC::Pvoice::Panel:
     file: lib/AAC/Pvoice/Panel.pm
     version: 1.02

@@ -8,7 +8,7 @@ use Win32::API;
 use Wx::Event qw(   EVT_LEFT_UP
                     EVT_RIGHT_UP
                     EVT_TIMER);
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.2 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.3 $=~/(\d+)\.(\d+)/);
 
 sub new
 {
@@ -26,8 +26,6 @@ sub new
                                # icon   = mouse left/right buttons
                                # adremo = electric wheelchair adremo
 
-    $self->{panel}->{ADREMO_PARPORT_MASK} = 0xff;  # to mask off the
-                                                   # bits 0-3
     $self->{panel}->{PARPORT_ADDRESS}     = 0x378; # lpt1
     $self->{panel}->{Interval} = $self->{panel}->{config}->ReadInt('Interval', 10);
     # The event for the adremo device
@@ -71,12 +69,8 @@ sub MonitorPort
                                             ["I"],      # Parameterlist
                                             "I")        # returnvalue
                             if not exists $self->{getportval};
-    my $curvalue = ($self->{getportval}
-                         ->Call($self->{PARPORT_ADDRESS}+1) &
-                         # parportaddress is base address, one byte
-                         # higher we find the statusbyte
-                                $self->{ADREMO_PARPORT_MASK});
-                         # we mask off the lower four bits
+    my $curvalue = $self->{getportval}
+                         ->Call($self->{PARPORT_ADDRESS}+1);
     if (not defined $curvalue)
     {
         $self->{monitorrun} = 0;
@@ -85,14 +79,14 @@ sub MonitorPort
     $self->{lastvalue} = 0 if not exists $self->{lastvalue};
     if ($curvalue != $self->{lastvalue})
     {
-        if ($curvalue == 0x38)
+        unless ($curvalue & 0x40)
         {
-            # 0x38 means a headmove to the right
+            # if bit 7 is off it's a headmove to the right
             $self->{input}->{next}->()   if $self->{input}->{next};
         }
-        if ($curvalue == 0xf8)
+        if ($curvalue & 0x80)
         {
-            # 0xf8 means a headmove to the left
+            # if bit 8 is on, it's a headmove to the left
             $self->{input}->{select}->() if $self->{input}->{select};
         }
     }
@@ -122,6 +116,9 @@ AAC::Pvoice::Input - A class that handles the input that controls a pVoice-like 
 
 
 =head1 DESCRIPTION
+
+The next release of this module will probably use Device::ParallelPort to
+make the module platform-independent again.
 
 =head2 new(panel)
 

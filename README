@@ -1,6 +1,8 @@
 AAC::Pvoice README
 
-See the (minimal) documentation inside AAC::Pvoice
+Because of the current dependency on Win32::API for AAC::Pvoice::Input,
+this module will currently only install on Win32 platforms. This will
+most likely change in version 0.5.
 
 At the very least you should be able to use this set of instructions
 to install the module...
