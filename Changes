@@ -1,5 +1,6 @@
 Revision history for Perl module AAC::Pvoice
 
 0.01 First version
-
+0.02 0.01 didn't arrive on PAUSE correctly
+0.03 minor documentation update in AAC::Pvoice::Bitmap
 

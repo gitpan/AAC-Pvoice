@@ -5,7 +5,7 @@ use warnings;
 use Wx qw(:everything);
 use Wx::Perl::Carp;
 
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.2 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.3 $=~/(\d+)\.(\d+)/);
 
 use base qw(Wx::Bitmap);
 
@@ -153,7 +153,7 @@ __END__
 
 =head1 NAME
 
-AAC::Pvoice::Panel - The base where a pVoice application consists of
+AAC::Pvoice::Bitmap - Easily create resized bitmaps with options
 
 =head1 SYNOPSIS
 
