@@ -1,0 +1,7 @@
+TODO list for Perl module AAC::Pvoice
+
+- Use Device::ParallelPort for AAC::Pvoice::Input
+- More documentation
+- More testing
+
+

@@ -1,0 +1,12 @@
+--- #YAML:1.0
+name: AAC-Pvoice
+version: 0.01
+author:
+  - ~
+abstract: Create GUI software for disabled people
+license: perl
+requires:
+  Win32::API: 0.41
+  Wx: 0.15
+provides: {}
+generated_by: Module::Build version 0.24
