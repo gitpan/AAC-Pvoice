@@ -1,31 +1,13 @@
---- #YAML:1.0
-name: AAC-Pvoice
-version: 0.5
-license: perl
-distribution_type: module
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         AAC-Pvoice
+version:      0.6
+version_from: lib/AAC/Pvoice.pm
+installdirs:  site
 requires:
-  Device::ParallelPort: 1
-  Wx: 0.15
-recommends: {}
-build_requires: {}
-conflicts: {}
-provides:
-  AAC::Pvoice:
-    file: lib/AAC/Pvoice.pm
-    version: 0.5
-  AAC::Pvoice::Bitmap:
-    file: lib/AAC/Pvoice/Bitmap.pm
-    version: 1.03
-  AAC::Pvoice::EditableRow:
-    file: lib/AAC/Pvoice/EditableRow.pm
-    version: 1.02
-  AAC::Pvoice::Input:
-    file: lib/AAC/Pvoice/Input.pm
-    version: 1.04
-  AAC::Pvoice::Panel:
-    file: lib/AAC/Pvoice/Panel.pm
-    version: 1.02
-  AAC::Pvoice::Row:
-    file: lib/AAC/Pvoice/Row.pm
-    version: 1.02
-generated_by: Module::Build version 0.19
+    Device::ParallelPort:          0
+    Device::ParallelPort::drv::win32: 0
+    Wx:                            0.15
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.17

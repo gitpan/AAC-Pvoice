@@ -1,27 +1,23 @@
-unless (eval "use Module::Build::Compat 0.02; 1" ) {
-  print "This module requires Module::Build to install itself.\n";
+use ExtUtils::MakeMaker;
 
-  require ExtUtils::MakeMaker;
-  my $yn = ExtUtils::MakeMaker::prompt
-    ('  Install Module::Build from CPAN?', 'y');
+my $pdrv;
 
-  if ($yn =~ /^y/i) {
-    require Cwd;
-    require File::Spec;
-    require CPAN;
-
-    # Save this 'cause CPAN will chdir all over the place.
-    my $cwd = Cwd::cwd();
-    my $makefile = File::Spec->rel2abs($0);
-
-    CPAN::Shell->install('Module::Build::Compat');
-
-    chdir $cwd or die "Cannot chdir() back to $cwd: $!";
-    exec $^X, $makefile, @ARGV;  # Redo now that we have Module::Build
-  } else {
-    warn " *** Cannot install without Module::Build.  Exiting ...\n";
-    exit 1;
-  }
+if ($^O eq 'MSWin32')
+{
+    $pdrv = Device::ParallelPort::drv::win32;
 }
-Module::Build::Compat->run_build_pl(args => \@ARGV);
-Module::Build::Compat->write_makefile();
+else
+{
+    $pdrv = Device::ParallelPort::drv::parport;
+}
+
+WriteMakefile(
+    NAME         => 'AAC::Pvoice',
+    VERSION_FROM => 'lib/AAC/Pvoice.pm', # finds $VERSION
+    AUTHOR       => 'Jouke Visser <jouke@cpan.org>',
+    ABSTRACT_FROM=> 'lib/AAC/Pvoice.pm',
+    PREREQ_PM    => {   Wx                      => 0.15,
+                        Device::ParallelPort    => 0,
+                        $pdrv                   => 0,
+                        }
+);

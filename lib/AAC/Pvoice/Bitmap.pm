@@ -5,7 +5,7 @@ use warnings;
 use Wx qw(:everything);
 use Wx::Perl::Carp;
 
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.3 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.4 $=~/(\d+)\.(\d+)/);
 
 use base qw(Wx::Bitmap);
 
@@ -65,12 +65,14 @@ sub ReadImage
         if ($w > $x)
         {
             my $factor = $w/$x;
+	    return wxNullBitmap if not $factor;
 	    $newy = int($h/$factor);
 	    ($w,$h) = ($x, $newy);
         }
         if ($h > ($y-$ch))
         {
             my $factor = $h/($y-$ch);
+	    return wxNullBitmap if not $factor;
 	    ($w, $h) = (int($w/$factor),$y-$ch);
         }
         $img = $img->Scale($w, $h);
@@ -79,11 +81,13 @@ sub ReadImage
     {
 	# Do we really want to blow up images that are too small??
 	my $factor = $w/$x;
+	return wxNullBitmap if not $factor;
 	my $newy = int($h/$factor);
 	($w,$h) = ($x, $newy);
 	if ($h > ($y-$ch))
 	{
 	    my $factor = $h/($y-$ch);
+	    return wxNullBitmap if not $factor;
 	    ($w, $h) = (int($w/$factor),$y-$ch);
         }
         $img = $img->Scale($w, $h);

@@ -10,6 +10,5 @@ lib/AAC/Pvoice/Panel.pm
 lib/AAC/Pvoice/Row.pm
 lib/AAC/Pvoice/EditableRow.pm
 t/001_load.t
-Build.PL
 Makefile.PL
 META.yml

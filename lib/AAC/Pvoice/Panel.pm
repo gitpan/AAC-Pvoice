@@ -2,7 +2,7 @@ package AAC::Pvoice::Panel;
 use strict;
 use warnings;
 
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.2 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.3 $=~/(\d+)\.(\d+)/);
 
 use Wx qw(:everything);
 use Wx::Perl::Carp;
@@ -148,6 +148,7 @@ sub Finalize
                                0,
                                'Comic Sans MS',   # face name
                                wxFONTENCODING_SYSTEM);
+    $font->SetUnderlined(1);
     $self->{ta} = Wx::TextAttr->new( Wx::Colour->new(0,0,0),      # textcol
                                      Wx::Colour->new(255,255,255),# backgr.
                                      $font);                      # font

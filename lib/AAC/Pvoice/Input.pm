@@ -19,7 +19,7 @@ BEGIN
 use Wx::Event qw(   EVT_LEFT_UP
                     EVT_RIGHT_UP
                     EVT_TIMER);
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.4 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.5 $=~/(\d+)\.(\d+)/);
 
 sub new
 {
@@ -38,6 +38,8 @@ sub new
                                # adremo = electric wheelchair adremo
 
     $self->{panel}->{Interval} = $self->{panel}->{config}->ReadInt('Interval', 10);
+    $self->{panel}->{Buttons} = $self->{panel}->{config}->ReadInt('Buttons', 2);
+    $self->{panel}->{OneButtonInterval} = $self->{panel}->{config}->ReadInt('OneButtonInterval',    2000);
     # The event for the adremo device
     $self->{panel}->{timer} = Wx::Timer->new($self->{panel},my $tid = Wx::NewId());
     $self->{panel}->{timer}->Start($self->{panel}->{Interval}, 0); # 0 is continuous
@@ -51,7 +53,16 @@ sub Next
     my $self = shift;
     my $sub = shift;
     $self->{next} = $sub;
-    EVT_RIGHT_UP($self->{panel}, sub{return if $self->{panel}->{config}->Read('Device') ne 'icon'; &$sub});
+    if ($self->{panel}->{Buttons} == 1)
+    {
+        $self->{panel}->{onebuttontimer} = Wx::Timer->new($self->{panel},my $obtid = Wx::NewId());
+        $self->{panel}->{onebuttontimer}->Start($self->{panel}->{OneButtonInterval}, 0); # 0 is continuous
+        EVT_TIMER($self->{panel}, $obtid, sub{my $self = shift; $self->{input}->{next}->() });
+    }
+    else
+    {
+        EVT_RIGHT_UP($self->{panel}, sub{return if $self->{panel}->{config}->Read('Device') ne 'icon'; &$sub});
+    }
 }
 
 sub Select
@@ -122,8 +133,12 @@ AAC::Pvoice::Input - A class that handles the input that controls a pVoice-like 
 
 =head1 DESCRIPTION
 
-The module now uses Device::ParallelPort, so it should be able to run
+AAC::Pvoice::Input allows one or two button operation of an AAC::Pvoice based
+application.
+The module uses Device::ParallelPort, so it should be able to run
 on Win32 as well as Linux platforms.
+
+=head1 USAGE
 
 =head2 new(panel)
 
@@ -133,9 +148,18 @@ If the configuration (read using Wx::ConfigBase::Get) has a key called
 'Device' (which can be set to 'icon' or 'adremo') is set to 'adremo', it
 will start polling the parallel port every x milliseconds, where x is the
 value of the key 'Interval'. This setting is only useful if you connect
-an "Adremo" electrical wheelchair to the parallel port of your PC. 
+an "Adremo" electrical wheelchair to the parallel port of your PC (for more
+information see http://www.adremo.nl).
 
-=Next(sub)
+AAC::Pvoice::Input has the ability to operate with either one or two buttons.
+If you want to use only one button, you need to set the configuration key "Buttons"
+to 1, and it will automatically invoke the subroutine you pass to Next() 
+at an interval of the value set in the key OneButtonInterval (set in milliseconds).
+
+The default for is to operate in two button mode, and if OneButtonInterval is not 
+set, it will use a default of 2000 milliseconds if "Buttons"  is set to 1.
+
+=head2 Next(sub)
 
 This method takes a coderef as parameter. This coderef will be invoked when
 the 'Next' event happens.
@@ -145,7 +169,7 @@ clicked, a 'Next' event is generated.
 If the Device is set to 'adremo' and the headsupport of the wheelchair
 is moved to the right, that will also generate a 'Next' event.
 
-=Select(sub)
+=head2 Select(sub)
 
 This method takes a coderef as parameter. This coderef will be invoked when
 the 'Select' event happens.
@@ -155,12 +179,9 @@ clicked, a 'Select' event is generated.
 If the Device is set to 'adremo' and the headsupport of the wheelchair
 is moved to the left, that will also generate a 'Select' event.
 
-=Quit
+=head2 Quit
 
 This method will stop the timer that monitors the parallel port.
-
-=head1 USAGE
-
 
 =head1 BUGS
 

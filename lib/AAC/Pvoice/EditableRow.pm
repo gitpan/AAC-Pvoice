@@ -1,18 +1,24 @@
 package AAC::Pvoice::EditableRow;
 use strict;
 use warnings;
+
 use Wx qw(:everything);
+use Wx::Perl::Carp;
 use Wx::Event qw(   EVT_BUTTON );
 use AAC::Pvoice::Bitmap;
 use base qw(Wx::Panel);
 
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.2 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.3 $=~/(\d+)\.(\d+)/);
 
 #----------------------------------------------------------------------
 sub new
 {
     my $class = shift;
     my ($parent,$maxitems,$items,$wxPos,$wxSize, $itemmaxX, $itemmaxY, $itemspacing, $background, $style,$name) = @_;
+    $wxPos ||= wxDefaultPosition;
+    $wxSize ||= wxDefaultSize;
+    $style ||= 0;
+    $name ||= '';
     my $self = $class->SUPER::new($parent, -1, $wxPos, $wxSize, $style, $name);
 
     $self->{maxitems} = $maxitems;
