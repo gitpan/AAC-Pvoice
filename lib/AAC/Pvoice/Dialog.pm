@@ -2,7 +2,7 @@ package AAC::Pvoice::Dialog;
 use strict;
 use warnings;
 
-our $VERSION     = sprintf("%d.%02d", q$Revision: 0.01 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.1 $=~/(\d+)\.(\d+)/);
 
 use Wx qw(:everything);
 use Wx::Event qw(EVT_CLOSE);

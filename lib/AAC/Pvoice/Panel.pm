@@ -2,7 +2,7 @@ package AAC::Pvoice::Panel;
 use strict;
 use warnings;
 
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.12 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.15 $=~/(\d+)\.(\d+)/);
 
 use Wx qw(:everything);
 use Wx::Perl::Carp;
@@ -15,6 +15,7 @@ sub new
     my $class = shift;
     $_[2] ||= wxDefaultPosition;
     $_[3] ||= wxDefaultSize;
+    $_[4] ||= wxTAB_TRAVERSAL;
     my $self = $class->SUPER::new(@_[0..4]);
 
     $self->SetBackgroundColour(wxWHITE);
@@ -342,8 +343,10 @@ sub Finalize
 	$self->{tls}->Add($rowsizer, 0, wxALIGN_CENTRE, 0);
 	$self->{textrowsizer} = $rowsizer;
     
-	$self->{text}->SetValue($self->RetrieveText);
+	$self->{text}->SetValue(my $x = $self->RetrieveText);
 	$self->{text}->SetStyle(0, length($self->{text}->GetValue), $self->{ta});
+	$self->{text}->Refresh(); # Added to test it on the Mercury...added text
+				  # isn't visible there...
     }    
     $self->{title}->SetBackgroundColour($self->BackgroundColour) unless $self->{disabletitle};
 
@@ -435,7 +438,9 @@ sub DisplayAddText
 {
     my $self = shift;
     push @{$self->{displaytextsave}}, $_[0];
-    $self->{text}->AppendText($_[0])
+    $self->{text}->AppendText($_[0]);
+    $self->{text}->Refresh(); # Added to test it on the Mercury...added text
+                              # isn't visible there...
 }
 
 sub SpeechAddText
@@ -447,7 +452,7 @@ sub SpeechAddText
 sub RetrieveText
 {
     my $self = shift;
-    return join('', @{$self->{displaytextsave}});
+    return wantarray ? @{$self->{displaytextsave}} : join('', @{$self->{displaytextsave}});
 }
 
 sub ClearText
@@ -455,7 +460,9 @@ sub ClearText
     my $self = shift;
     $self->{displaytextsave}=[];
     $self->{speechtextsave}=[];
-    $self->{text}->SetValue('')
+    $self->{text}->SetValue('');
+    $self->{text}->Refresh(); # Added to test it on the Mercury...added text
+                              # isn't visible there...
 }
 
 sub BackspaceText
@@ -463,14 +470,16 @@ sub BackspaceText
     my $self = shift;
     pop @{$self->{displaytextsave}};
     pop @{$self->{speechtextsave}};
-    $self->{text}->SetValue($self->RetrieveText);
+    $self->{text}->SetValue(my $x = $self->RetrieveText);
     $self->{text}->SetStyle(0, length($self->{text}->GetValue), $self->{ta});
+    $self->{text}->Refresh(); # Added to test it on the Mercury...added text
+                              # isn't visible there...
 }
 
 sub SpeechRetrieveText
 {
     my $self = shift;
-    return join('', @{$self->{speechtextsave}});
+    return wantarray ? @{$self->{speechtextsave}} : join('', @{$self->{speechtextsave}});
 }
     
 1;
@@ -625,12 +634,14 @@ on the textrow. See DisplayAddText for more information.
 =head2 RetrieveText
 
 This method returns the text that is added to the Displaytext since the
-last 'ClearText'.
+last 'ClearText'. In scalar context it returns it as one string, in listcontext
+it returns the array of text as it was added.
 
 =head2 SpeechRetrieveText
 
 This method returns the text that is added to the Speechtext since the
-last 'ClearText'.
+last 'ClearText'. In scalar context it returns it as one string, in listcontext
+it returns the array of text as it was added.
 
 =head2 ClearText
 

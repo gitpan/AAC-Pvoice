@@ -10,7 +10,7 @@ use File::Cache;
 use File::stat;
 use File::Temp qw( :POSIX );
 
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.11 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.12 $=~/(\d+)\.(\d+)/);
 
 use base qw(Wx::Bitmap);
 our $cache;
@@ -136,7 +136,7 @@ sub ReadImage
             my $pen = Wx::Pen->new($bg, 1, wxSOLID);
             $tmpdc->SetBrush($br);
             $tmpdc->SetPen($pen);
-                $tmpdc->DrawRoundedRectangle(1,1,$x-1,$y-1, 10);
+            $tmpdc->DrawRoundedRectangle(1,1,$x-1,$y-1, 10);
         }
     
         my $msk = Wx::Mask->new($bmp, Wx::Colour->new(255,255,255));
@@ -222,6 +222,9 @@ SVG
         
     	my $rc = $img->Read($file);
     	carp "Can't read $file: $rc" if $rc;
+        # wmf files have a white background color by default
+        # if we can't get the matte color for the image, we assume
+        # that white can be used as the transparent color...
     	$img->Transparent(color => 'white') if (!$img->Get('matte') || $file =~ /wmf$/i);
     	my $w = $img->Get('width');
     	my $h = $img->Get('height');

@@ -16,7 +16,7 @@ use Text::Wrap qw(wrap);
 BEGIN {
 	use Exporter ();
 	use vars qw ($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-	$VERSION     = 0.9;
+	$VERSION     = 0.91;
 	@ISA         = qw (Exporter);
 	@EXPORT      = qw (MessageBox);
 	@EXPORT_OK   = qw ();
@@ -32,7 +32,7 @@ sub MessageBox
 	$y       ||= -1;
 
 	$Text::Wrap::columns = 25;
-	$message = wrap('','',$message);
+	$message = wrap('','',$message)."\n";
 	
     my $width = 0;
     $width = 25 if $style & wxOK;

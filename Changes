@@ -54,3 +54,11 @@ Revision history for Perl module AAC::Pvoice
     AAC::Pvoice
         * This module now provides the AAC::Pvoice::MessageBox function,
           similar to Wx::MessageBox.
+0.91 AAC::Pvoice
+        * Made a little more space between the text and the buttons in the MessageBox
+          function
+     AAC::Pvoice::Bitmap
+        * Minor changes
+     AAC::Pvoice::Panel
+        * ability to return the array of added texts from RetrieveText and SpeechRetrieveText
+        and made accompanying changes in other methods.
