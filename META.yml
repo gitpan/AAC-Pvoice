@@ -1,12 +1,31 @@
 --- #YAML:1.0
 name: AAC-Pvoice
-version: 0.01
-author:
-  - ~
-abstract: Create GUI software for disabled people
+version: 0.2
 license: perl
+distribution_type: module
 requires:
   Win32::API: 0.41
   Wx: 0.15
-provides: {}
-generated_by: Module::Build version 0.24
+recommends: {}
+build_requires: {}
+conflicts: {}
+provides:
+  AAC::Pvoice:
+    file: lib/AAC/Pvoice.pm
+    version: 0.2
+  AAC::Pvoice::Bitmap:
+    file: lib/AAC/Pvoice/Bitmap.pm
+    version: 1.02
+  AAC::Pvoice::EditableRow:
+    file: lib/AAC/Pvoice/EditableRow.pm
+    version: 1.02
+  AAC::Pvoice::Input:
+    file: lib/AAC/Pvoice/Input.pm
+    version: 1.02
+  AAC::Pvoice::Panel:
+    file: lib/AAC/Pvoice/Panel.pm
+    version: 1.02
+  AAC::Pvoice::Row:
+    file: lib/AAC/Pvoice/Row.pm
+    version: 1.02
+generated_by: Module::Build version 0.19
