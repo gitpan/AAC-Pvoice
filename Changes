@@ -12,3 +12,20 @@ Revision history for Perl module AAC::Pvoice
     AAC::Pvoice::EditableRow now has some sensible defaults to prevent
     'Use of uninitialized value' warnings
     AAC::Pvoice::Input can now handle one button input
+0.7 AAC::Pvoice::Input
+        * now allows keyboard input
+        * now allows direct mouseclicks on the buttons
+    AAC::Pvoice::Panel
+        * now uses a round cornered background and
+        * no longer simply sets the background for the normal and
+          selected state, but draws a round cornered border around
+          the rows and buttons that are selected
+        * finally got the screensizing correctly...no more weird
+          calculating stuff...
+    AAC::Pvoice::Bitmap
+        * now produces round cornered bitmaps
+    AAC::Pvoice::Row
+        * no longer uses too large images (screensizing update)
+    AAC::Pvoice::EditableRow
+        * no longer uses too large images (screensizing update)
+    

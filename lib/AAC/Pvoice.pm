@@ -14,7 +14,7 @@ use AAC::Pvoice::Panel;
 BEGIN {
 	use Exporter ();
 	use vars qw ($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-	$VERSION     = 0.6;
+	$VERSION     = 0.7;
 	@ISA         = qw (Exporter);
 	@EXPORT      = qw ();
 	@EXPORT_OK   = qw ();
@@ -82,6 +82,6 @@ AAC::Pvoice::EditableRow, AAC::Pvoice::Input
 =cut
 
 
-1; #this line is important and will help the module return a true value
+1; 
 __END__
 

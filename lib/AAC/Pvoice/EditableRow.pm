@@ -8,7 +8,7 @@ use Wx::Event qw(   EVT_BUTTON );
 use AAC::Pvoice::Bitmap;
 use base qw(Wx::Panel);
 
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.3 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.4 $=~/(\d+)\.(\d+)/);
 
 #----------------------------------------------------------------------
 sub new
@@ -43,7 +43,7 @@ sub new
                                      [$maxX+3, $maxY+3],     	# size
                                      wxBU_AUTODRAW);  # style
         $button->SetBackgroundColour($background);
-        $sizer->Add($button, 0, wxALL|wxALIGN_CENTRE, $self->{itemspacing});
+        $sizer->Add($button, 0, wxALIGN_CENTRE|wxALL, $self->{itemspacing});
         push @{$self->{items}}, $button;
 	EVT_BUTTON($self, $id, $sub);
     }

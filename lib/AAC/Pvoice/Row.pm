@@ -7,7 +7,7 @@ use Wx::Perl::Carp;
 use AAC::Pvoice::Bitmap;
 use base qw(Wx::Panel);
 
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.2 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.4 $=~/(\d+)\.(\d+)/);
 #----------------------------------------------------------------------
 sub new
 {
@@ -23,7 +23,6 @@ sub new
 				    $name||'');
 
     $self->{maxitems}    = $maxitems;
-    $self->{itemspacing} = $itemspacing;
 
     my $sizer = Wx::GridSizer->new(1,0);
     $self->{items}   = [];
@@ -40,10 +39,10 @@ sub new
                                                 Wx::NewId, 
                                                 wxNullBitmap, 
                                                 wxDefaultPosition, 
-                                                [$maxX+3, $maxY+3],
+                                                [$maxX, $maxY],
                                                 wxSUNKEN_BORDER);
             $empty->SetBackgroundColour($background);
-    	    $sizer->Add($empty,0, wxALL|wxALIGN_CENTRE, $self->{itemspacing});
+    	    $sizer->Add($empty,0, wxALIGN_CENTRE|wxALL, $itemspacing);
             next;
     	}
         my ($id, $img, $sub) = @$_;
@@ -51,12 +50,13 @@ sub new
 					    $id,               # id
 					    $img,              # image
 					    wxDefaultPosition, # position
-					    [$maxX+3, $maxY+3],# size
+					    [$maxX, $maxY],# size
 					    wxSUNKEN_BORDER);  # style
         $button->SetBackgroundColour($background);
-        $sizer->Add($button, 0, wxALL|wxALIGN_CENTRE, $self->{itemspacing});
+        $sizer->Add($button, 0, wxALIGN_CENTRE|wxALL, $itemspacing);
         push @{$self->{items}}, $button;
         push @{$self->{actions}}, $sub;
+        push @{$self->{ids}}, $id;
     }
     my $totalitems = scalar(@$items);
     $self->{totalitems} = scalar(@{$self->{items}});
@@ -66,10 +66,10 @@ sub new
 					    Wx::NewId, 
 					    wxNullBitmap, 
 					    wxDefaultPosition, 
-					    [$maxX+3, $maxY+3],
+					    [$maxX, $maxY],
 					    wxSUNKEN_BORDER);
 	$empty->SetBackgroundColour($background);
-	$sizer->Add($empty,0, wxALL|wxALIGN_CENTRE, $self->{itemspacing});
+	$sizer->Add($empty,0, wxALIGN_CENTRE|wxALL, $itemspacing);
     }
     $self->SetBackgroundColour($background);
     $self->SetSizer($sizer);

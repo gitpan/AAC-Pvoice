@@ -16,10 +16,10 @@ BEGIN
         require Device::ParallelPort::drv::parport;
     }
 }
-use Wx::Event qw(   EVT_LEFT_UP
-                    EVT_RIGHT_UP
-                    EVT_TIMER);
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.5 $=~/(\d+)\.(\d+)/);
+use Wx::Event qw(   EVT_TIMER
+                    EVT_CHAR
+                    EVT_MOUSE_EVENTS);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.8 $=~/(\d+)\.(\d+)/);
 
 sub new
 {
@@ -27,25 +27,134 @@ sub new
     my $class = ref($proto) || $proto;
     my $self = {};
     bless $self, $class;
-    $self->{panel} = shift;
+    $self->{window} = shift;
 
     # We get the configuration from the Windows registry
     # If it's not initialized, we provide some defaults
-    $self->{panel}->{config} = Wx::ConfigBase::Get || croak "Can't get Config";
+    $self->{window}->{config} = Wx::ConfigBase::Get || croak "Can't get Config";
 
-    $self->{panel}->{Device} = $self->{panel}->{config}->Read('Device',    'icon');
-                               # icon   = mouse left/right buttons
-                               # adremo = electric wheelchair adremo
+    # Get the input-device
+    # icon   = mouse left/right buttons
+    # adremo = electric wheelchair adremo
+    # keys   = keystrokes
+    $self->{window}->{Device} = $self->{window}->{config}->Read('Device',    'icon');
 
-    $self->{panel}->{Interval} = $self->{panel}->{config}->ReadInt('Interval', 10);
-    $self->{panel}->{Buttons} = $self->{panel}->{config}->ReadInt('Buttons', 2);
-    $self->{panel}->{OneButtonInterval} = $self->{panel}->{config}->ReadInt('OneButtonInterval',    2000);
-    # The event for the adremo device
-    $self->{panel}->{timer} = Wx::Timer->new($self->{panel},my $tid = Wx::NewId());
-    $self->{panel}->{timer}->Start($self->{panel}->{Interval}, 0); # 0 is continuous
-    EVT_TIMER($self->{panel}, $tid, \&MonitorPort);
+    $self->{window}->{Interval}          = $self->{window}->{config}->ReadInt('Interval', 10);
+    $self->{window}->{Buttons}           = $self->{window}->{config}->ReadInt('Buttons',   2);
+    $self->{window}->{OneButtonInterval} = $self->{window}->{config}->ReadInt('OneButtonInterval',    2000);
+
+    $self->_initmonitor;
+    $self->_initautoscan;
+    $self->_initkeys;
+    $self->_initicon;
+
+    $self->StartMonitor if $self->{window}->{Device} eq 'adremo';
+    return $self;
+}
+
+sub newchild
+{
+    my $proto = shift;
+    my $class = ref($proto) || $proto;
+    my $self = {};
+    bless $self, $class;
+    $self->{window} = shift;
+
+    # We get the configuration from the Windows registry
+    # If it's not initialized, we provide some defaults
+    $self->{window}->{config} = Wx::ConfigBase::Get || croak "Can't get Config";
+
+    # Get the input-device
+    # icon   = mouse left/right buttons
+    # adremo = electric wheelchair adremo
+    # keys   = keystrokes
+    $self->{window}->{Device} = $self->{window}->{config}->Read('Device',    'icon');
+
+    $self->{window}->{Interval}          = $self->{window}->{config}->ReadInt('Interval', 10);
+    $self->{window}->{Buttons}           = $self->{window}->{config}->ReadInt('Buttons',   2);
+    $self->{window}->{OneButtonInterval} = $self->{window}->{config}->ReadInt('OneButtonInterval',    2000);
+
+    $self->_initkeys;
+    $self->_initicon;
 
     return $self;
+}
+
+sub _initkeys
+{
+    my $self = shift;
+    EVT_CHAR($self->{window}, \&_keycontrol)
+        if $self->{window}->{config}->Read('Device') eq 'keys';
+}
+
+sub _initicon
+{
+    my $self = shift;
+    EVT_MOUSE_EVENTS($self->{window}, \&_iconcontrol)
+        if $self->{window}->{config}->Read('Device') eq 'icon';
+}
+
+sub _initmonitor
+{
+    my $self = shift;
+    # The event for the adremo device
+    $self->{window}->{timer} = Wx::Timer->new($self->{window},my $tid = Wx::NewId());
+    EVT_TIMER($self->{window}, $tid, \&_monitorport);
+}
+
+sub _initautoscan
+{
+    my $self = shift;
+    $self->{window}->{onebuttontimer} = Wx::Timer->new($self->{window},my $obtid = Wx::NewId());
+    EVT_TIMER($self->{window}, $obtid, sub{my $self = shift; $self->{input}->{next}->() });
+}
+
+sub StartMonitor
+{
+    my $self = shift;
+    $self->{window}->{timer}->Start($self->{window}->{Interval}, 0); # 0 is continuous
+}
+
+sub QuitMonitor
+{
+    my $self = shift;
+    # stop the timer for the port monitor
+    $self->{window}->{timer}->Stop() if exists $self->{window}->{timer};
+}
+
+sub StartAutoscan
+{
+    my $self = shift;
+    $self->{window}->{onebuttontimer}->Start($self->{window}->{OneButtonInterval}, 0); # 0 is continuous
+}
+
+sub QuitAutoscan
+{
+    my $self = shift;
+    $self->{window}->{onebuttontimer}->Stop();
+}
+
+sub GetDevice
+{
+    my $self = shift;
+    return $self->{window}->{config}->Read('Device');
+}
+
+sub SetupMouse
+{
+    my $self = shift;
+    my ($window, $subgetfocus, $subup, $sublosefocus) = @_;
+
+    if ($self->{window}->{config}->Read('Device') eq 'mouse')
+    {
+        EVT_MOUSE_EVENTS($window, sub { my ($self, $event) = @_;
+                                        &$subup         if $event->LeftUp;
+                                        &$sublosefocus  if $event->Leaving;
+                                        &$subgetfocus   if $event->Entering;
+                                      });
+    }
+
+
 }
 
 sub Next
@@ -53,15 +162,9 @@ sub Next
     my $self = shift;
     my $sub = shift;
     $self->{next} = $sub;
-    if ($self->{panel}->{Buttons} == 1)
+    if ($self->{window}->{Buttons} == 1 && $self->{window}->{onebuttontimer})
     {
-        $self->{panel}->{onebuttontimer} = Wx::Timer->new($self->{panel},my $obtid = Wx::NewId());
-        $self->{panel}->{onebuttontimer}->Start($self->{panel}->{OneButtonInterval}, 0); # 0 is continuous
-        EVT_TIMER($self->{panel}, $obtid, sub{my $self = shift; $self->{input}->{next}->() });
-    }
-    else
-    {
-        EVT_RIGHT_UP($self->{panel}, sub{return if $self->{panel}->{config}->Read('Device') ne 'icon'; &$sub});
+        $self->StartAutoscan;
     }
 }
 
@@ -70,52 +173,72 @@ sub Select
     my $self = shift;
     my $sub = shift;
     $self->{select} = $sub;
-    EVT_LEFT_UP($self->{panel},sub {return if $self->{panel}->{config}->Read('Device') ne 'icon'; &$sub});
+}
+
+sub _keycontrol
+{
+    # BEWARE: $self is the window object this event belongs to
+    my ($self, $event) = @_;
+    $self->{input}->{select}->() if $event->GetKeyCode == $self->{config}->ReadInt('SelectKey', WXK_RETURN);
+    $self->{input}->{next}->() if (($event->GetKeyCode == $self->{config}->ReadInt('NextKey', WXK_SPACE)) and (not $self->{Buttons} == 1));
+}
+
+sub _iconcontrol
+{
+    # BEWARE: $self is the window object this event belongs to
+    my ($self, $event) = @_;
+    $self->{input}->{select}->() if $event->LeftUp;
+    $self->{input}->{next}->()   if $event->RightUp &&
+                                    not $self->{Buttons} == 1;
 }
 
 #----------------------------------------------------------------------
 # This sub is used to monitor the parallel port for the adremo device
-sub MonitorPort
+sub _monitorport
 {
     # BEWARE: $self is the AAC::Pvoice::Panel object the timer
     # belongs to!
     my ($self, $event) = @_;
     # do nothing if the device is not adremo or
     # if we're already running
-    return if $self->{config}->Read('Device') eq 'icon';
-    return if $self->{monitorrun};
+    return if ($self->{monitorrun}                           || 
+               (not $self->{input}->{next})                  || 
+               (not $self->{input}->{select}) );
+    # set the flag that we're checking the port
     $self->{monitorrun} = 1;
     $self->{pp} = Device::ParallelPort->new() if not $self->{pp};
     my $curvalue = $self->{pp}->get_status();
     if (not defined $curvalue)
     {
+        # clear the flag that we're checking the port and return
         $self->{monitorrun} = 0;
         return
     }
     $self->{lastvalue} = 0 if not exists $self->{lastvalue};
+    # if we detect a change...
     if ($curvalue != $self->{lastvalue})
     {
         unless ($curvalue & 0x40)
         {
             # if bit 6 is off it's a headmove to the right
-            $self->{input}->{next}->()   if $self->{input}->{next};
+            # which will indicate a Next() event unless we're in
+            # one button mode
+            $self->{input}->{next}->() unless $self->{Buttons} == 1;
         }
         if ($curvalue & 0x80)
         {
             # if bit 7 is on (this bit is inverted), it's a headmove to the left
-            $self->{input}->{select}->() if $self->{input}->{select};
+            # which will indicate a Select() event.
+            $self->{input}->{select}->();
         }
     }
+    # the current value becomes the last value
     $self->{lastvalue} = $curvalue if $curvalue;
+
+    # clear the flag that we're checking the port
     $self->{monitorrun} = 0;
 }
 
-sub Quit
-{
-    my $self = shift;
-    # stop the timer for the port monitor
-    $self->{panel}->{timer}->Stop();
-}
 
 1;
 
@@ -140,24 +263,37 @@ on Win32 as well as Linux platforms.
 
 =head1 USAGE
 
-=head2 new(panel)
+=head2 new($window)
 
-This constructor takes the panel (AAC::Pvoice::Panel typically) on which
+This constructor takes the window (AAC::Pvoice::Panel typically) on which
 the events and timer will be called as a parameter.
 If the configuration (read using Wx::ConfigBase::Get) has a key called
-'Device' (which can be set to 'icon' or 'adremo') is set to 'adremo', it
+'Device' (which can be set to 'icon', 'keys' , 'mouse' or 'adremo') is set to 'adremo', it
 will start polling the parallel port every x milliseconds, where x is the
-value of the key 'Interval'. This setting is only useful if you connect
+value of the configuration key 'Interval'. This setting is only useful if you connect
 an "Adremo" electrical wheelchair to the parallel port of your PC (for more
 information see http://www.adremo.nl).
+If the key 'Device' is set to 'icon' it will respond to the left and right
+mouse button, and if it's set to 'keys' it will respond to the configuration
+keys 'SelectKey' and 'NextKey' (which are the keyboard codes for the 'select'
+and 'next' events respectively.
 
 AAC::Pvoice::Input has the ability to operate with either one or two buttons.
 If you want to use only one button, you need to set the configuration key "Buttons"
 to 1, and it will automatically invoke the subroutine you pass to Next() 
-at an interval of the value set in the key OneButtonInterval (set in milliseconds).
+at an interval of the value set in the configuration key OneButtonInterval (set in milliseconds).
 
 The default for is to operate in two button mode, and if OneButtonInterval is not 
 set, it will use a default of 2000 milliseconds if "Buttons"  is set to 1.
+
+=head2 newchild($window)
+
+This semi-constructor takes the window (usually a child of the panel you
+passed to the new() constructor, on which the events will be called as a parameter.
+It doesn't start the timers for polling the parallel port and automatic
+invocation of the Next() subroutine, because those timers otherwise would
+be started multiple times.
+Apart from starting those timers, this method works exactly like the new()
 
 =head2 Next(sub)
 
@@ -168,6 +304,8 @@ If the Device (see 'new') is set to 'icon', and a right mousebutton is
 clicked, a 'Next' event is generated.
 If the Device is set to 'adremo' and the headsupport of the wheelchair
 is moved to the right, that will also generate a 'Next' event.
+If the Device is set to 'keys' and a key is pressed that corresponds with the 
+keycode set in the 'NextKey', this will generate a 'Next' event too.
 
 =head2 Select(sub)
 
@@ -178,10 +316,43 @@ If the Device (see 'new') is set to 'icon', and a left mousebutton is
 clicked, a 'Select' event is generated.
 If the Device is set to 'adremo' and the headsupport of the wheelchair
 is moved to the left, that will also generate a 'Select' event.
+If the Device is set to 'keys' and a key is pressed that corresponds with the 
+keycode set in the 'SelectKey', this will generate a 'Select' event too.
 
-=head2 Quit
+=head2 GetDevice
+
+This method will return the value of the configuration key called 'Device'
+
+=head2 SetupMouse($window, $subgetfocus, $subup, $sublosefocus)
+
+This method is used to setup a button for normal mouse input (when
+configuration key 'Device' is set to 'mouse'). It takes the wxWindow
+(typically a Wx::BitmapButton) that should respond to this way of
+input as the first parameter.
+$subgetfocus is the coderef that should be invoked when the mousecursor
+hovers over this $window (EVT_ENTER).
+$subup is the coderef that should be invoked when the left mousebutton
+is released (EVT_LEFT_UP).
+$sublosefocus is the coderef that should be invoked when the $window
+loses focus (EVT_LEAVE).
+
+
+=head2 StartMonitor
+
+This method will start polling the the parallel port for input of the Adremo
+Electrical Wheelchair.
+
+=head2 QuitMonitor
 
 This method will stop the timer that monitors the parallel port.
+
+=head2 StartAutoscan
+
+This method will start the timer that invokes the Next() event every n milliseconds.
+
+=head2 QuitAutoscan
+
+This method will stop the timer that invokes the Next() method.
 
 =head1 BUGS
 

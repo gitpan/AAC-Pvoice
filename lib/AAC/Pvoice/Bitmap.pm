@@ -5,7 +5,7 @@ use warnings;
 use Wx qw(:everything);
 use Wx::Perl::Carp;
 
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.4 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.7 $=~/(\d+)\.(\d+)/);
 
 use base qw(Wx::Bitmap);
 
@@ -18,18 +18,19 @@ BEGIN
 sub new
 {
     my $class = shift;
-    my ($file, $MAX_X, $MAX_Y, $caption, $background, $blowup) = @_;
+    my ($file, $MAX_X, $MAX_Y, $caption, $background, $blowup, $parent_background) = @_;
     $caption||='';
+    $parent_background=Wx::Colour->new(220,220,220) if not defined $parent_background;
     my $config = Wx::ConfigBase::Get;
     $caption = $config->ReadInt('Caption')?$caption:'';
-    return ReadImage($file, $MAX_X, $MAX_Y, $caption, $background, $blowup);
+    return ReadImage($file, $MAX_X, $MAX_Y, $caption, $background, $blowup, $parent_background);
 }
 
 
 sub ReadImage
 {
     my $file = shift;
-    my ($x, $y, $caption, $background, $blowup) = @_;
+    my ($x, $y, $caption, $background, $blowup, $parent_background) = @_;
     if (not -f $file)
     {
         warn "File does not exist: $file";
@@ -43,12 +44,12 @@ sub ReadImage
     {
 	do
 	{
-	    $cfont = Wx::Font->new( $cpt,             # font size
+	    $cfont = Wx::Font->new( $cpt,               # font size
 				    wxSWISS,            # font family
 				    wxNORMAL,           # style
 				    wxNORMAL,           # weight
 				    0,                  
-				    'Comic Sans MS',   # face name
+				    'Comic Sans MS',    # face name
 				    wxFONTENCODING_SYSTEM);
 	    ($cw, $ch, undef, undef) = $capdc->GetTextExtent($caption, $cfont);
 	    $cpt--;
@@ -96,10 +97,15 @@ sub ReadImage
     my $newbmp = Wx::Bitmap->new($x, $y);
     my $tmpdc = Wx::MemoryDC->new();
     $tmpdc->SelectObject($newbmp);
- 
+
+    my $bgbr = Wx::Brush->new($parent_background, wxSOLID);
+    $tmpdc->SetBrush($bgbr); 
+    $tmpdc->SetBackground($bgbr);
+    $tmpdc->Clear();
+
+    my $bg = wxBLACK;
     if (defined $background)
     {
-        my $bg;
         if (ref($background)=~/ARRAY/)
         {
             $bg = Wx::Colour->new(@$background);
@@ -109,11 +115,12 @@ sub ReadImage
             $bg = $background;
         }
         my $br = Wx::Brush->new($bg, wxSOLID);
+        my $pen = Wx::Pen->new($bg, 1, wxSOLID);
         $tmpdc->SetBrush($br);
-        $tmpdc->SetBackground($br);
+	$tmpdc->SetPen($pen);
+	$tmpdc->DrawRoundedRectangle(1,1,$x-1,$y-1, 10);
 #        print "$caption\n";
     }
-    $tmpdc->Clear();
 
     my $msk = Wx::Mask->new($bmp, Wx::Colour->new(255,255,255));
     $bmp->SetMask($msk);
@@ -121,7 +128,7 @@ sub ReadImage
 
     if ($caption)
     {
-	$tmpdc->SetTextBackground(wxWHITE);
+	$tmpdc->SetTextBackground($bg);
 	$tmpdc->SetTextForeground(wxBLACK);
 	$tmpdc->SetFont($cfont);
 	$tmpdc->DrawText($caption, int(($x-$cw)/2),$y-$ch);
@@ -132,7 +139,7 @@ sub ReadImage
         my ($font, $w, $h);
         do
         {
-            $font = Wx::Font->new(  $pt,              # font size
+            $font = Wx::Font->new(  $pt,                # font size
                                     wxSWISS,            # font family
                                     wxNORMAL,           # style
                                     wxNORMAL,           # weight
@@ -141,7 +148,7 @@ sub ReadImage
             ($w, $h, undef, undef) = $tmpdc->GetTextExtent('?', $font);
             $pt-=12;
         } until (($w<$x) && ($h<($y-$ch)));
-        $tmpdc->SetTextForeground(wxWHITE);
+        $tmpdc->SetTextForeground($bg);
         $tmpdc->SetTextBackground(wxBLACK);
         $tmpdc->SetFont($font);
         $tmpdc->DrawText('?', int(($x-$w)/2), int(($y-$ch-$h)/2));
@@ -179,7 +186,7 @@ can handle on the resulting AAC::Pvoice::Bitmap.
 
 =head1 USAGE
 
-=head2 new(image, maxX, maxY, caption, background, blowup)
+=head2 new(image, maxX, maxY, caption, background, blowup, parentbackground)
 
 This constructor returns a bitmap (useable as a normal Wx::Bitmap), that
 has a size of maxX x maxY, the image drawn into it as large as possible.
@@ -222,6 +229,11 @@ This is the background of the image, specified as either a constant
 This boolean parameter determines whether or not images that are smaller
 than maxX and maxY should be blown up to be as large as possible within
 the given maxX and maxY.
+
+=item parentbackground
+
+This is the background of the parent of this bitmap, which is the colour to
+be used outside of the round cornered background.
 
 =back
 
