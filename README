@@ -9,6 +9,8 @@ Device::ParallelPort, which has drivers for Linux and Win32.
 As of version 0.6 the modules allow you to use your application in
 One or Two-button mode. See the documentation of AAC::Pvoice::Input for details.
 
+As of version 0.9 you need Image::Magick.
+
 At the very least you should be able to use this set of instructions
 to install the module...
 

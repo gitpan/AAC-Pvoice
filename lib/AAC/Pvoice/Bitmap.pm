@@ -4,14 +4,20 @@ use strict;
 use warnings;
 use Wx qw(:everything);
 use Wx::Perl::Carp;
+use Image::Magick;
+use IO::Scalar;
+use File::Cache;
+use File::stat;
+use File::Temp qw( :POSIX );
 
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.8 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.11 $=~/(\d+)\.(\d+)/);
 
 use base qw(Wx::Bitmap);
-
+our $cache;
 BEGIN
 {
     Wx::InitAllImageHandlers;
+    $cache = File::Cache->new({namespace => 'images'});
 }
 
 #----------------------------------------------------------------------
@@ -23,7 +29,9 @@ sub new
     $parent_background=Wx::Colour->new(220,220,220) if not defined $parent_background;
     my $config = Wx::ConfigBase::Get;
     $caption = $config->ReadInt('Caption')?$caption:'';
-    return ReadImage($file, $MAX_X, $MAX_Y, $caption, $background, $blowup, $parent_background);
+#    return ReadImage($file, $MAX_X, $MAX_Y, $caption, $background, $blowup, $parent_background) if $file;
+    return ReadImageMagick($file, $MAX_X, $MAX_Y, $caption, $background, $blowup, $parent_background) if $file;
+    return DrawCaption($MAX_X, $MAX_Y, $caption, $background, $parent_background);
 }
 
 
@@ -31,69 +39,258 @@ sub ReadImage
 {
     my $file = shift;
     my ($x, $y, $caption, $background, $blowup, $parent_background) = @_;
-    if (not -f $file)
+    return DrawCaption($x, $y, '?', $background, $parent_background) unless -r $file;
+    confess "MaxX and MaxY should be positive" if $x < 1 || $y < 1;
+    my $newbmp;
+    
+    $caption ||='';
+    $blowup ||=0;
+    $background = $parent_background unless defined $background;
+
+    my $ibg = wxColor2hex($background) if (ref($background) eq 'Wx::Colour');
+    my $pbg = wxColor2hex($parent_background) if (ref($parent_background) eq 'Wx::Colour');
+
+    my $stat = stat($file);
+    my $mtime = $stat->mtime();
+    my $image = $cache->get("$file-$x-$y-$caption-$ibg-$blowup-$pbg-$mtime");
+    if (!$image)
     {
-        warn "File does not exist: $file";
+        my $capdc = Wx::MemoryDC->new();
+        my $cpt = 10;
+        my ($cfont, $cw, $ch) = (wxNullFont, 0, 0);
+        if ($caption)
+        {
+            do
+            {
+                $cfont = Wx::Font->new( $cpt,               # font size
+                                        wxSWISS,            # font family
+                                        wxNORMAL,           # style
+                                        wxNORMAL,           # weight
+                                        0,                  
+                                        'Comic Sans MS',    # face name
+                                        wxFONTENCODING_SYSTEM);
+                ($cw, $ch, undef, undef) = $capdc->GetTextExtent($caption, $cfont);
+                $cpt--;
+            } until ($cw<$x);
+        }
+        my $img = Wx::Image->new($x, $y-$ch);
+        $img->SetOption('quality', 100);
+        my $rc = $img->LoadFile($file, wxBITMAP_TYPE_ANY);
+        return wxNullBitmap if not $rc;
+        my ($w,$h) = ($img->GetWidth, $img->GetHeight);
+        if (($w > $x) || ($h > ($y-$ch)))
+        {
+            my ($newx, $newy) = ($w, $h);
+            if ($w > $x)
+            {
+                my $factor = $w/$x;
+                return wxNullBitmap if not $factor;
+                $newy = int($h/$factor);
+                ($w,$h) = ($x, $newy);
+            }
+            if ($h > ($y-$ch))
+            {
+                my $factor = $h/($y-$ch);
+                return wxNullBitmap if not $factor;
+                ($w, $h) = (int($w/$factor),$y-$ch);
+            }
+            $img = $img->Scale($w, $h);
+        }
+        elsif ($blowup)
+        {
+            # Do we really want to blow up images that are too small??
+            my $factor = $w/$x;
+            return wxNullBitmap if not $factor;
+            my $newy = int($h/$factor);
+            ($w,$h) = ($x, $newy);
+            if ($h > ($y-$ch))
+            {
+                my $factor = $h/($y-$ch);
+                return wxNullBitmap if not $factor;
+                ($w, $h) = (int($w/$factor),$y-$ch);
+            }
+            $img = $img->Scale($w, $h);
+        }
+        my $bmp = Wx::Bitmap->new($img);
+        my $newbmp = Wx::Bitmap->new($x, $y);
+        my $tmpdc = Wx::MemoryDC->new();
+        $tmpdc->SelectObject($newbmp);
+    
+        my $bgbr = Wx::Brush->new($parent_background, wxSOLID);
+        $tmpdc->SetBrush($bgbr); 
+        $tmpdc->SetBackground($bgbr);
+        $tmpdc->Clear();
+    
+        my $bg = $parent_background;
+        if (defined $background)
+        {
+            if (ref($background)=~/ARRAY/)
+            {
+                $bg = Wx::Colour->new(@$background);
+            }
+            else
+            {
+                $bg = $background;
+            }
+            my $br = Wx::Brush->new($bg, wxSOLID);
+            my $pen = Wx::Pen->new($bg, 1, wxSOLID);
+            $tmpdc->SetBrush($br);
+            $tmpdc->SetPen($pen);
+                $tmpdc->DrawRoundedRectangle(1,1,$x-1,$y-1, 10);
+        }
+    
+        my $msk = Wx::Mask->new($bmp, Wx::Colour->new(255,255,255));
+        $bmp->SetMask($msk);
+        $tmpdc->DrawBitmap($bmp, int(($x - $bmp->GetWidth())/2), int(($y-$ch-$bmp->GetHeight())/2), 1);
+    
+        if ($caption)
+        {
+            $tmpdc->SetTextBackground($bg);
+            $tmpdc->SetTextForeground(wxBLACK);
+            $tmpdc->SetFont($cfont);
+            $tmpdc->DrawText($caption, int(($x-$cw)/2),$y-$ch);
+        }
+        my $tmpfile = File::Temp::tmpnam();
+    	$newbmp->SaveFile($tmpfile, wxBITMAP_TYPE_PNG);
+        local $/ = undef;
+        open(my $fh, "<$tmpfile");
+        binmode($fh);
+        my $image = <$fh>;
+        close($fh);
+    	$cache->set("$file-$x-$y-$caption-$ibg-$blowup-$pbg-$mtime", $image);	
     }
+    
+    my $fh = IO::Scalar->new(\$image); 	 
+
+    my $contenttype = 'image/png'; 
+    return Wx::Bitmap->new(Wx::Image->newStreamMIME($fh,  $contenttype)) 
+}
+
+sub wxColor2hex
+{
+    my $color = shift;
+    my $red   = $color->Red();
+    my $green = $color->Green();
+    my $blue  = $color->Blue();
+    return sprintf("#%0x%0x%0x", $red,$green,$blue);
+}
+
+sub ReadImageMagick
+{
+    my $file = shift;
+    my ($x, $y, $caption, $bgcolor, $blowup, $parent_background) = @_;
+    confess "MaxX and MaxY should be positive" if $x < 1 || $y < 1;
+    return DrawCaption($x, $y, '?', $bgcolor, $parent_background) unless -r $file;
+
+    $caption ||='';
+    $blowup ||=0;
+    $bgcolor = $parent_background unless defined $bgcolor;
+
+    my $ibg = wxColor2hex($bgcolor) if (ref($bgcolor) eq 'Wx::Colour');
+    my $pbg = wxColor2hex($parent_background) if (ref($parent_background) eq 'Wx::Colour');
+
+    my $stat = stat($file);
+    my $mtime = $stat->mtime();
+    my $image = $cache->get("$file-$x-$y-$caption-$ibg-$blowup-$pbg-$mtime");
+    if (!$image)
+    {
+    	my $radius = 10;
+    	my $svg = <<SVG;
+<svg width="$x" height="$y" viewBox="0 0 $x $y">
+   <rect x="0" y="0" width="$x" height="$y" ry="$radius"
+       style="stroke: none; fill: $ibg;"/>
+</svg>
+SVG
+    	my $background=Image::Magick->new(magick => 'svg');
+    	$background->Set('background' => $pbg);
+    	$background->blobtoimage($svg);
+        
+    	my ($textheight, $textwidth) = (0,0);
+    	if ($caption)
+    	{
+    	    my $pt = 20;
+    	    do {
+    		(undef, undef, undef, undef, $textwidth, $textheight, undef) =
+    		    $background->QueryFontMetrics(text => $caption, font => 'Comic-Sans-MS', pointsize => $pt, gravity => 'South');
+    		    $pt--;
+    		} until ($textwidth < $x) && ($textheight < $y/5);
+    	    $background->Annotate(text => $caption, font => 'Comic-Sans-MS', pointsize => $pt, gravity => 'South');
+    	}
+        
+    	# Read the actual image
+    	my $img = Image::Magick->new;
+        
+    	my $rc = $img->Read($file);
+    	carp "Can't read $file: $rc" if $rc;
+    	$img->Transparent(color => 'white') if (!$img->Get('matte') || $file =~ /wmf$/i);
+    	my $w = $img->Get('width');
+    	my $h = $img->Get('height');
+    	my $ch = $textheight;
+    	if (($w > $x) || ($h > ($y-$ch)))
+    	{
+    	    my ($newx, $newy) = ($w, $h);
+    	    if ($w > $x)
+    	    {
+    		my $factor = $w/$x;
+    		return wxNullBitmap if not $factor;
+    		$newy = int($h/$factor);
+    		($w,$h) = ($x, $newy);
+    	    }
+    	    if ($h > ($y-$ch))
+    	    {
+    		my $factor = $h/($y-$ch);
+    		return wxNullBitmap if not $factor;
+    		($w, $h) = (int($w/$factor),$y-$ch);
+    	    }
+    	    $img->Thumbnail(height => $h, width =>$w );
+    	}
+    	elsif ($blowup)
+    	{
+    	    # Do we really want to blow up images that are too small??
+    	    my $factor = $w/$x;
+    	    return wxNullBitmap if not $factor;
+    	    my $newy = int($h/$factor);
+    	    ($w,$h) = ($x, $newy);
+    	    if ($h > ($y-$ch))
+    	    {
+    		my $factor = $h/($y-$ch);
+    		return wxNullBitmap if not $factor;
+    		($w, $h) = (int($w/$factor),$y-$ch);
+    	    }
+    	    $img->Resize(height => $h, width =>$w );
+    	}
+        
+    	$img->Border(width  => int(($x - $img->Get('width'))/2) - $radius/2,
+    		      height => int((($y-$textheight) - $img->Get('height'))/2) - $radius/2,
+    		      fill   => $ibg);
+    	
+    	# Call the Composite method of the background image, with the logo image as an argument.
+    	$background->Composite(image=>$img,compose=>'over', gravity => 'North');
+    	$background->Set(quality=>100);
+    	$background->Set(magick => 'png');
+    	$image = $background->imagetoblob();
+    	$cache->set("$file-$x-$y-$caption-$ibg-$blowup-$pbg-$mtime", $image);	
+    	undef $background;
+    	undef $img;
+    }
+    
+    my $fh = IO::Scalar->new(\$image); 	 
+
+    my $contenttype = 'image/png'; 
+    return Wx::Bitmap->new(Wx::Image->newStreamMIME($fh,  $contenttype)) 
+}
+
+END
+{
+    undef $cache;
+}
+
+sub DrawCaption
+{
+    my ($x, $y, $caption, $background, $parent_background) = @_;
+
     confess "MaxX and MaxY should be positive" if $x < 1 || $y < 1;
     
-    my $capdc = Wx::MemoryDC->new();
-    my $cpt = 10;
-    my ($cfont, $cw, $ch) = (wxNullFont, 0, 0);
-    if ($caption)
-    {
-	do
-	{
-	    $cfont = Wx::Font->new( $cpt,               # font size
-				    wxSWISS,            # font family
-				    wxNORMAL,           # style
-				    wxNORMAL,           # weight
-				    0,                  
-				    'Comic Sans MS',    # face name
-				    wxFONTENCODING_SYSTEM);
-	    ($cw, $ch, undef, undef) = $capdc->GetTextExtent($caption, $cfont);
-	    $cpt--;
-	} until ($cw<$x);
-    }
-    my $img = Wx::Image->new($x, $y-$ch);
-    $img->SetOption('quality', 100);
-    $img->LoadFile($file, wxBITMAP_TYPE_ANY) if -f $file;
-    return undef if not $img;
-    my ($w,$h) = ($img->GetWidth, $img->GetHeight);
-    if (($w > $x) || ($h > ($y-$ch)))
-    {
-    	my ($newx, $newy) = ($w, $h);
-        if ($w > $x)
-        {
-            my $factor = $w/$x;
-	    return wxNullBitmap if not $factor;
-	    $newy = int($h/$factor);
-	    ($w,$h) = ($x, $newy);
-        }
-        if ($h > ($y-$ch))
-        {
-            my $factor = $h/($y-$ch);
-	    return wxNullBitmap if not $factor;
-	    ($w, $h) = (int($w/$factor),$y-$ch);
-        }
-        $img = $img->Scale($w, $h);
-    }
-    elsif ($blowup)
-    {
-	# Do we really want to blow up images that are too small??
-	my $factor = $w/$x;
-	return wxNullBitmap if not $factor;
-	my $newy = int($h/$factor);
-	($w,$h) = ($x, $newy);
-	if ($h > ($y-$ch))
-	{
-	    my $factor = $h/($y-$ch);
-	    return wxNullBitmap if not $factor;
-	    ($w, $h) = (int($w/$factor),$y-$ch);
-        }
-        $img = $img->Scale($w, $h);
-    }
-    my $bmp = Wx::Bitmap->new($img);
     my $newbmp = Wx::Bitmap->new($x, $y);
     my $tmpdc = Wx::MemoryDC->new();
     $tmpdc->SelectObject($newbmp);
@@ -103,7 +300,7 @@ sub ReadImage
     $tmpdc->SetBackground($bgbr);
     $tmpdc->Clear();
 
-    my $bg = wxBLACK;
+    my $bg = $parent_background;
     if (defined $background)
     {
         if (ref($background)=~/ARRAY/)
@@ -119,40 +316,26 @@ sub ReadImage
         $tmpdc->SetBrush($br);
 	$tmpdc->SetPen($pen);
 	$tmpdc->DrawRoundedRectangle(1,1,$x-1,$y-1, 10);
-#        print "$caption\n";
     }
 
-    my $msk = Wx::Mask->new($bmp, Wx::Colour->new(255,255,255));
-    $bmp->SetMask($msk);
-    $tmpdc->DrawBitmap($bmp, int(($x - $bmp->GetWidth())/2), int(($y-$ch-$bmp->GetHeight())/2), 1);
+    my $pt = 72;
+    my ($font, $w, $h);
+    do
+    {
+	$font = Wx::Font->new(  $pt,                # font size
+				wxSWISS,            # font family
+				wxNORMAL,           # style
+				wxNORMAL,           # weight
+				0,                  
+				'Comic Sans MS');   # face name
+	($w, $h, undef, undef) = $tmpdc->GetTextExtent($caption, $font);
+	$pt= $pt > 24 ? $pt - 4 : $pt-1;
+    } until (($w<$x) && ($h<$y) || $pt < 5);
+    $tmpdc->SetTextForeground(wxBLACK);
+    $tmpdc->SetTextBackground($bg);
+    $tmpdc->SetFont($font);
+    $tmpdc->DrawText($caption, int(($x-$w)/2), int(($y-$h)/2));
 
-    if ($caption)
-    {
-	$tmpdc->SetTextBackground($bg);
-	$tmpdc->SetTextForeground(wxBLACK);
-	$tmpdc->SetFont($cfont);
-	$tmpdc->DrawText($caption, int(($x-$cw)/2),$y-$ch);
-    }
-    if (not -f $file)
-    {
-        my $pt = 72;
-        my ($font, $w, $h);
-        do
-        {
-            $font = Wx::Font->new(  $pt,                # font size
-                                    wxSWISS,            # font family
-                                    wxNORMAL,           # style
-                                    wxNORMAL,           # weight
-                                    0,                  
-                                    'Comic Sans MS');   # face name
-            ($w, $h, undef, undef) = $tmpdc->GetTextExtent('?', $font);
-            $pt-=12;
-        } until (($w<$x) && ($h<($y-$ch)));
-        $tmpdc->SetTextForeground($bg);
-        $tmpdc->SetTextBackground(wxBLACK);
-        $tmpdc->SetFont($font);
-        $tmpdc->DrawText('?', int(($x-$w)/2), int(($y-$ch-$h)/2));
-    }
     return $newbmp;
 }
 

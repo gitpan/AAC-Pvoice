@@ -19,7 +19,7 @@ BEGIN
 use Wx::Event qw(   EVT_TIMER
                     EVT_CHAR
                     EVT_MOUSE_EVENTS);
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.11 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.12 $=~/(\d+)\.(\d+)/);
 
 sub new
 {
@@ -152,6 +152,12 @@ sub PauseAutoscan
     $self->StartAutoscan unless $bool;
 }
 
+sub Pause
+{
+    my $self = shift;
+    $self->{pause} = shift;
+}
+
 sub GetDevice
 {
     my $self = shift;
@@ -193,6 +199,7 @@ sub _keycontrol
 {
     # BEWARE: $self is the window object this event belongs to
     my ($self, $event) = @_;
+    return if $self->{pause};
     $self->{input}->{select}->() if ($event->GetKeyCode == $self->{config}->ReadInt('SelectKey', WXK_RETURN)) || (uc(chr($event->GetKeyCode)) eq uc(chr($self->{config}->ReadInt('SelectKey'))));
     $self->{input}->{next}->()   if (( ($event->GetKeyCode == $self->{config}->ReadInt('NextKey', WXK_SPACE)) ||
                                        (uc(chr($event->GetKeyCode)) eq uc(chr($self->{config}->ReadInt('NextKey'))))) and
@@ -203,6 +210,7 @@ sub _iconcontrol
 {
     # BEWARE: $self is the window object this event belongs to
     my ($self, $event) = @_;
+    return if $self->{pause};
     $self->{input}->{select}->() if $event->LeftUp;
     $self->{input}->{next}->()   if $event->RightUp &&
                                     not $self->{config}->ReadInt('Buttons') == 1;
@@ -219,7 +227,8 @@ sub _monitorport
     # if we're already running
     return if ($self->{monitorrun}                           || 
                (not $self->{input}->{next})                  || 
-               (not $self->{input}->{select}) );
+               (not $self->{input}->{select})                ||
+               $self->{pause});
     # set the flag that we're checking the port
     $self->{monitorrun} = 1;
     $self->{pp} = Device::ParallelPort->new() if not $self->{pp};

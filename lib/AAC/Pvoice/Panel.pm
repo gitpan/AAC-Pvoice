@@ -2,7 +2,7 @@ package AAC::Pvoice::Panel;
 use strict;
 use warnings;
 
-our $VERSION     = sprintf("%d.%02d", q$Revision: 1.10 $=~/(\d+)\.(\d+)/);
+our $VERSION     = sprintf("%d.%02d", q$Revision: 1.12 $=~/(\d+)\.(\d+)/);
 
 use Wx qw(:everything);
 use Wx::Perl::Carp;
@@ -13,6 +13,8 @@ use base qw(Wx::Panel);
 sub new
 {
     my $class = shift;
+    $_[2] ||= wxDefaultPosition;
+    $_[3] ||= wxDefaultSize;
     my $self = $class->SUPER::new(@_[0..4]);
 
     $self->SetBackgroundColour(wxWHITE);
@@ -23,6 +25,7 @@ sub new
     $self->{disabletextrow} = $_[5] || 0;
     $self->{itemspacing}    = $_[6] || 0;
     $self->{selectionborder}= $_[7] || int($self->{itemspacing}/2)||1;
+    $self->{disabletitle}   = $_[8] || 0;
     $self->{tls} = Wx::FlexGridSizer->new(0,1);
     $self->{totalrows}   = 0;
     $self->{lastrow}     = 0;
@@ -59,23 +62,26 @@ sub new
     $self->{realx} = $x;
     $self->{realy} = $y;
     $self->xsize($x);
-    # to be able to calculate the useable y-size, we need to add the
-    # title and get its height. Since we don't know what the title
-    # will be, we'll simple draw an empty title.
-    $self->TitleFont(Wx::Font->new( 18,                 # font size
-				    wxDECORATIVE,       # font family
-				    wxNORMAL,           # style
-				    wxNORMAL,           # weight
-				    0,                  
-				    'Comic Sans MS',    # face name
-				    wxFONTENCODING_SYSTEM)) unless $self->TitleFont;
-    $self->AddTitle('');
-    my $usableysize = $y - 2*$self->{title}->GetSize()->GetHeight();
-    # If we want to use a textrow, we have to subtract another 60
-    # pixels from the y size, since the textrow is always 60 pixels high.
-    $usableysize-=60 unless $self->{disabletextrow};
-    $self->ysize($usableysize);
-    
+    $self->ysize($y);
+    unless ($self->{disabletitle})
+    {
+	# to be able to calculate the useable y-size, we need to add the
+	# title and get its height. Since we don't know what the title
+	# will be, we'll simple draw an empty title.
+	$self->TitleFont(Wx::Font->new( 18,                 # font size
+					wxDECORATIVE,       # font family
+					wxNORMAL,           # style
+					wxNORMAL,           # weight
+					0,                  
+					'Comic Sans MS',    # face name
+					wxFONTENCODING_SYSTEM)) unless $self->TitleFont;
+	$self->AddTitle('');
+	my $usableysize = $y - 2*$self->{title}->GetSize()->GetHeight();
+	# If we want to use a textrow, we have to subtract another 60
+	# pixels from the y size, since the textrow is always 60 pixels high.
+	$usableysize-=60 unless $self->{disabletextrow};
+	$self->ysize($usableysize);
+    }
     # set the default colours...these can of course be changed...
     $self->SelectColour(Wx::Colour->new(255,131,131));
     $self->BackgroundColour(Wx::Colour->new(220,220,220));
@@ -206,6 +212,7 @@ sub DrawBackground
 sub AddTitle
 {
     my ($self, $title) = @_;
+    return if $self->{disabletitle};
     my $titleupdate = exists $self->{title};
     if ($titleupdate)
     {
@@ -275,6 +282,7 @@ sub PauseInput
     my $bool = shift;
     $self->{input}->PauseMonitor($bool);
     $self->{input}->PauseAutoscan($bool);
+    $self->{input}->Pause($bool);
 }
 
 sub Clear
@@ -337,7 +345,7 @@ sub Finalize
 	$self->{text}->SetValue($self->RetrieveText);
 	$self->{text}->SetStyle(0, length($self->{text}->GetValue), $self->{ta});
     }    
-    $self->{title}->SetBackgroundColour($self->BackgroundColour);
+    $self->{title}->SetBackgroundColour($self->BackgroundColour) unless $self->{disabletitle};
 
     $self->{tls}->AddGrowableCol(0);
     $self->Layout;
@@ -406,9 +414,9 @@ sub Select
     else
     {
         $self->SetNormalBorder($self->{rows}->[$self->{selectedrow}]->{items}->[$self->{selecteditem}]) if $self->{rowcolumnscanning};
+        $self->SetSelectionBorder($self->{rows}->[$self->{selectedrow}]) if $self->{rowcolumnscanning};
 
         &{$self->{rows}->[$self->{selectedrow}]->{actions}->[$self->{selecteditem}]};
-        $self->SetSelectionBorder($self->{rows}->[$self->{selectedrow}]) if $self->{rowcolumnscanning};
         $self->{rowselection} = 1;
     }
     $self->{input}->StartAutoscan;
@@ -487,7 +495,7 @@ AAC::Pvoice::Panel - The base where a pVoice application consists of
 
 =head1 USAGE
 
-=head2 new(parent, id, size, position, style, disabletextrow, itemspacing, selectionborderwidth)
+=head2 new(parent, id, size, position, style, disabletextrow, itemspacing, selectionborderwidth, disabletitle)
 
 This is the constructor for a new AAC::Pvoice::Panel. The first 5 parameters are
 equal to the parameters for a normal Wx::Panel, see the wxPerl documentation
@@ -511,6 +519,12 @@ This is the spacing used between the rows that are appended.
 =item selectionborderwidth
 
 This is the width of the border around a selected row or a selected item.
+
+=item disabletitle
+
+This is also a boolean (1 or 0), which determines if the panel should
+reserve space for a title. If disabletitle is set to 1, AddTitle won't have
+any effect at all.
 
 =back
 
@@ -630,7 +644,7 @@ Make sure that both speechtext and displaytext have the same amount of
 text added, because it just pops off the last item from both lists and
 updates the textrow.
 
-=head PauseInput($bool)
+=head2 PauseInput($bool)
 
 This method makes sure that the timers that are used for the input (using
 AAC::Pvoice::Input) are paused if $bool is set to 1. If $bool is 0, they're
